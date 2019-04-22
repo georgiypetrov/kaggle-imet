@@ -32,7 +32,7 @@ def main():
     arg('--pretrained', type=int, default=1)
     arg('--batch-size', type=int, default=64)
     arg('--step', type=int, default=1)
-    arg('--workers', type=int, default=2 if ON_KAGGLE else 4)
+    arg('--workers', type=int, default=2 if ON_KAGGLE else 6)
     arg('--lr', type=float, default=1e-4)
     arg('--patience', type=int, default=4)
     arg('--clean', action='store_true')

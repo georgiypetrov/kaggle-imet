@@ -1,2 +1,9 @@
 /.build/script.py
 /data
+/idea
+/.idea
+/__pycache__
+/imet/__pycache__
+*.*~
+/.ipynb_checkpoints
+/model_1
