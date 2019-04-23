@@ -146,7 +146,10 @@ def predict(model, root: Path, df: pd.DataFrame, out_path: Path,
         for inputs, ids in tqdm.tqdm(loader, desc='Predict'):
             if use_cuda:
                 inputs = inputs.cuda()
-            outputs = torch.sigmoid(model(inputs))
+            outputs = model(inputs)
+            if args.model == "inception_v3":
+                outputs = outputs[0]
+            outputs = torch.sigmoid(outputs)
             all_outputs.append(outputs.data.cpu().numpy())
             all_ids.extend(ids)
     df = pd.DataFrame(
@@ -206,6 +209,8 @@ def train(args, model: nn.Module, criterion, *, params,
                 if use_cuda:
                     inputs, targets = inputs.cuda(), targets.cuda()
                 outputs = model(inputs)
+                if args.model == "inception_v3":
+                    outputs = outputs[0]
                 loss = _reduce_loss(criterion(outputs, targets))
                 batch_size = inputs.size(0)
                 (batch_size * loss).backward()
@@ -259,6 +264,8 @@ def validation(
             if use_cuda:
                 inputs, targets = inputs.cuda(), targets.cuda()
             outputs = model(inputs)
+            if args.model == "inception_v3":
+                outputs = outputs[0]
             loss = criterion(outputs, targets)
             all_losses.append(_reduce_loss(loss).item())
             predictions = torch.sigmoid(outputs)

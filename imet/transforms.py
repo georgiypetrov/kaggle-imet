@@ -53,13 +53,13 @@ class RandomSizedCrop:
 
 
 train_transform = Compose([
-    RandomCrop(288),
+    RandomCrop(299, pad_if_needed=True),
     RandomHorizontalFlip(),
 ])
 
 
 test_transform = Compose([
-    RandomCrop(288),
+    RandomCrop(299, pad_if_needed=True),
     RandomHorizontalFlip(),
 ])
 

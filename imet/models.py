@@ -111,9 +111,8 @@ class VGG(nn.Module):
         super().__init__()
         self.net = create_net(net_cls, pretrained=pretrained)
         self.avg_pool = AvgPool()
-        features = (list, self.net.classifier.children())[:-1]
-        features.extend([nn.Linear(self.net.classifier[6].in_features, num_classes)])
-        self.net.classifier = nn.Sequential(*features)
+        self.net.classifier = nn.Sequential(*([self.net.classifier[i] for i in range(6)] 
+        + [nn.Linear(self.net.classifier[6].in_features, num_classes)]))
         
     def fresh_params(self):
         return self.net.classifier.parameters()
@@ -125,20 +124,15 @@ class VGG(nn.Module):
         out = self.net.classifier(out)
         return out
 
-
+    
 class InceptionV3(nn.Module):
     def __init__(self, num_classes,
-                 pretrained=False, net_cls=M.inception_v3, dropout=False):
+                 pretrained=False, net_cls=M.inception_v3):
         super().__init__()
         self.net = create_net(net_cls, pretrained=pretrained)
         self.net.avgpool = AvgPool()
-        if dropout:
-            self.net.fc = nn.Sequential(
-                nn.Dropout(),
-                nn.Linear(self.net.fc.in_features, num_classes),
-            )
-        else:
-            self.net.fc = nn.Linear(self.net.fc.in_features, num_classes)
+        self.net.AuxLogits.fc = nn.Linear(self.net.AuxLogits.fc.in_features, num_classes)
+        self.net.fc = nn.Linear(self.net.fc.in_features, num_classes)
 
     def fresh_params(self):
         return self.net.fc.parameters()
