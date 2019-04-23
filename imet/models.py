@@ -14,7 +14,8 @@ models_dict = {
     "resnet34": "pytorch-pretrained-image-models/resnet34",
     "densenet121": "pytorch-pretrained-image-models/densenet121",
     "densenet201": "pytorch-pretrained-image-models/densenet201",
-    "resnet152": "pytorch-model-zoo/fbresnet152-2e20f6b4"
+    "resnet152": "pytorch-model-zoo/fbresnet152-2e20f6b4",
+    "nasnetalarge": "pytorch-model-zoo/nasnetalarge-a1897284"
 }
 
 
@@ -29,8 +30,10 @@ def create_net(net_cls, pretrained: bool):
         model_name = net_cls.__name__
         model_path = models_dict[model_name]
         weights_path = f'../input/{model_path}.pth'
+        print(model_name, weights_path)
         net.load_state_dict(torch.load(weights_path))
     else:
+        print("no pretrained or not in kaggle")
         net = net_cls(pretrained=pretrained)
     return net
 
