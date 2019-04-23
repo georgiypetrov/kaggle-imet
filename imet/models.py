@@ -10,12 +10,19 @@ from .utils import ON_KAGGLE
 
 
 models_dict = {
-    "resnet50": "pytorch-pretrained-image-models/resnet50",
+    "resnet18": "resnet18/resnet18",
     "resnet34": "pytorch-pretrained-image-models/resnet34",
+    "resnet50": "pytorch-pretrained-image-models/resnet50",
+    "resnet101": "resnet101/resnet101",
+    "resnet152": "resnet152/resnet152",
+    "densenet161": "densenet161/densenet161",
+    "densenet169": "densenet169/densenet169",
     "densenet121": "pytorch-pretrained-image-models/densenet121",
     "densenet201": "pytorch-pretrained-image-models/densenet201",
-    "resnet152": "pytorch-model-zoo/fbresnet152-2e20f6b4",
-    "nasnetalarge": "pytorch-model-zoo/nasnetalarge-a1897284"
+    "nasnetalarge": "pytorch-model-zoo/nasnetalarge-a1897284",
+    "vgg16": "vgg16/vgg16",
+    "vgg19": "vgg19/vgg19",
+    "inception_v3": "inceptionv3/inception_v3_google"
 }
 
 
@@ -98,6 +105,47 @@ class NasNet(nn.Module):
        return out
 
 
+class VGG(nn.Module):
+    def __init__(self, num_classes,
+                 pretrained=False, net_cls=M.vgg19):
+        super().__init__()
+        self.net = create_net(net_cls, pretrained=pretrained)
+        self.avg_pool = AvgPool()
+        features = (list, self.net.classifier.children())[:-1]
+        features.extend([nn.Linear(self.net.classifier[6].in_features, num_classes)])
+        self.net.classifier = nn.Sequential(*features)
+        
+    def fresh_params(self):
+        return self.net.classifier.parameters()
+
+    def forward(self, x):
+        out = self.net.features(x)
+        out = F.relu(out, inplace=True)
+        out = self.avg_pool(out).view(out.size(0), -1)
+        out = self.net.classifier(out)
+        return out
+
+
+class InceptionV3(nn.Module):
+    def __init__(self, num_classes,
+                 pretrained=False, net_cls=M.inception_v3, dropout=False):
+        super().__init__()
+        self.net = create_net(net_cls, pretrained=pretrained)
+        self.net.avgpool = AvgPool()
+        if dropout:
+            self.net.fc = nn.Sequential(
+                nn.Dropout(),
+                nn.Linear(self.net.fc.in_features, num_classes),
+            )
+        else:
+            self.net.fc = nn.Linear(self.net.fc.in_features, num_classes)
+
+    def fresh_params(self):
+        return self.net.fc.parameters()
+
+    def forward(self, x):
+        return self.net(x)
+
 
 resnet18 = partial(ResNet, net_cls=M.resnet18)
 resnet34 = partial(ResNet, net_cls=M.resnet34)
@@ -106,8 +154,13 @@ resnet101 = partial(ResNet, net_cls=M.resnet101)
 resnet152 = partial(ResNet, net_cls=M.resnet152)
 
 densenet121 = partial(DenseNet, net_cls=M.densenet121)
+densenet161 = partial(DenseNet, net_cls=M.densenet161)
 densenet169 = partial(DenseNet, net_cls=M.densenet169)
 densenet201 = partial(DenseNet, net_cls=M.densenet201)
-densenet161 = partial(DenseNet, net_cls=M.densenet161)
 
 nasnetalarge = partial(NasNet, net_cls=nasnetalarge)
+
+vgg16 = partial(VGG, net_cls=M.vgg16)
+vgg19 = partial(VGG, net_cls=M.vgg19)
+
+inception_v3 = partial(InceptionV3, net_cls=M.inception_v3)
