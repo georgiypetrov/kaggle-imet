@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 import torchvision.models as M
-# from .nasnet import nasnetalarge
+from .nasnet import nasnetalarge
 
 from .utils import ON_KAGGLE
 
@@ -13,7 +13,8 @@ models_dict = {
     "resnet50": "pytorch-pretrained-image-models/resnet50",
     "resnet34": "pytorch-pretrained-image-models/resnet34",
     "densenet121": "pytorch-pretrained-image-models/densenet121",
-    "densenet201": "pytorch-pretrained-image-models/densenet201"
+    "densenet201": "pytorch-pretrained-image-models/densenet201",
+    "resnet152": "pytorch-model-zoo/fbresnet152-2e20f6b4"
 }
 
 
@@ -75,23 +76,23 @@ class DenseNet(nn.Module):
         return out
 
 
-# class NasNet(nn.Module):
-#    def __init__(self, num_classes, pretrained=False, net_cls=nasnetalarge):
-#        super().__init__()
-#        self.net = create_net(net_cls, pretrained=pretrained)
-#        self.avg_pool = AvgPool()
-#        self.net.classifier = nn.Linear(
-#        self.net.classifier.in_features, num_classes)
-#
-#    def fresh_params(self):
-#        return self.net.classifier.parameters()
-#
-#    def forward(self, x):
-#        out = self.net.features(x)
-#        out = F.relu(out, inplace=True)
-#        out = self.avg_pool(out).view(out.size(0), -1)
-#        out = self.net.classifier(out)
-#        return out
+class NasNet(nn.Module):
+   def __init__(self, num_classes, pretrained=False, net_cls=nasnetalarge):
+       super().__init__()
+       self.net = create_net(net_cls, pretrained=pretrained)
+       self.avg_pool = AvgPool()
+       self.net.last_linear = nn.Linear(
+       self.net.last_linear.in_features, num_classes)
+
+   def fresh_params(self):
+       return self.net.last_linear.parameters()
+
+   def forward(self, x):
+       out = self.net.features(x)
+       out = F.relu(out, inplace=True)
+       out = self.avg_pool(out).view(out.size(0), -1)
+       out = self.net.last_linear(out)
+       return out
 
 
 
@@ -106,4 +107,4 @@ densenet169 = partial(DenseNet, net_cls=M.densenet169)
 densenet201 = partial(DenseNet, net_cls=M.densenet201)
 densenet161 = partial(DenseNet, net_cls=M.densenet161)
 
-# nasnetalarge = partial(NasNet, net_cls=nasnetalarge)
+nasnetalarge = partial(NasNet, net_cls=nasnetalarge)
