@@ -20,7 +20,7 @@ from .dataset import TrainDataset, TTADataset, get_ids, N_CLASSES, DATA_ROOT
 from .transforms import train_transform, test_transform
 from .utils import (
     write_event, load_model, mean_df, ThreadingDataLoader as DataLoader,
-    ON_KAGGLE)
+    ON_KAGGLE, loss_function, set_models_path_env)
 
 
 def main():
@@ -34,20 +34,23 @@ def main():
     arg('--step', type=int, default=1)
     arg('--workers', type=int, default=2 if ON_KAGGLE else 6)
     arg('--lr', type=float, default=1e-4)
-    arg('--patience', type=int, default=4)
+    arg('--patience', type=int, default=3)
     arg('--clean', action='store_true')
     arg('--n-epochs', type=int, default=100)
     arg('--epoch-size', type=int)
-    arg('--tta', type=int, default=4)
+    arg('--tta', type=int, default=8)
     arg('--use-sample', action='store_true', help='use a sample of the dataset')
     arg('--debug', action='store_true')
     arg('--limit', type=int)
     arg('--fold', type=int, default=0)
+    arg('--loss', type=str, default='')
+    arg('--input-size', type=int, default=228)
     args = parser.parse_args()
 
     run_root = Path(args.run_root)
     folds = pd.read_csv('folds.csv')
     train_root = DATA_ROOT / ('train_sample' if args.use_sample else 'train')
+    set_models_path_env(args.model)
     if args.use_sample:
         folds = folds[folds['Id'].isin(set(get_ids(train_root)))]
     train_fold = folds[folds['fold'] != args.fold]
@@ -63,11 +66,11 @@ def main():
             batch_size=args.batch_size,
             num_workers=args.workers,
         )
-    criterion = nn.BCEWithLogitsLoss(reduction='none')
+    criterion = loss_function(args.loss)
     model = getattr(models, args.model)(
         num_classes=N_CLASSES, pretrained=args.pretrained)
     use_cuda = cuda.is_available()
-    fresh_params = list(model.fresh_params())
+    fresh_params = list(model._classifier.parameters())
     all_params = list(model.parameters())
     if use_cuda:
         model = model.cuda()
@@ -105,7 +108,7 @@ def main():
         valid_loader = make_loader(valid_fold, test_transform)
         load_model(model, run_root / 'model.pt')
         validation(model, criterion, tqdm.tqdm(valid_loader, desc='Validation'),
-                   use_cuda=use_cuda)
+                   use_cuda=use_cuda, model_name=args.model)
 
     elif args.mode.startswith('predict'):
         load_model(model, run_root / 'best-model.pt')
@@ -147,8 +150,6 @@ def predict(model, root: Path, df: pd.DataFrame, out_path: Path,
             if use_cuda:
                 inputs = inputs.cuda()
             outputs = model(inputs)
-            if args.model == "inception_v3":
-                outputs = outputs[0]
             outputs = torch.sigmoid(outputs)
             all_outputs.append(outputs.data.cpu().numpy())
             all_ids.extend(ids)
@@ -227,7 +228,7 @@ def train(args, model: nn.Module, criterion, *, params,
             write_event(log, step, loss=mean_loss)
             tq.close()
             save(epoch + 1)
-            valid_metrics = validation(model, criterion, valid_loader, use_cuda)
+            valid_metrics = validation(model, criterion, valid_loader, use_cuda, args.model)
             write_event(log, step, **valid_metrics)
             valid_loss = valid_metrics['valid_loss']
             valid_losses.append(valid_loss)
@@ -254,7 +255,7 @@ def train(args, model: nn.Module, criterion, *, params,
 
 
 def validation(
-        model: nn.Module, criterion, valid_loader, use_cuda,
+        model: nn.Module, criterion, valid_loader, use_cuda, model_name
         ) -> Dict[str, float]:
     model.eval()
     all_losses, all_predictions, all_targets = [], [], []
@@ -264,7 +265,7 @@ def validation(
             if use_cuda:
                 inputs, targets = inputs.cuda(), targets.cuda()
             outputs = model(inputs)
-            if args.model == "inception_v3":
+            if model_name == "inception_v3":
                 outputs = outputs[0]
             loss = criterion(outputs, targets)
             all_losses.append(_reduce_loss(loss).item())

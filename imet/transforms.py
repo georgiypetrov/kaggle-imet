@@ -4,7 +4,7 @@ import math
 from PIL import Image
 from torchvision.transforms import (
     ToTensor, Normalize, Compose, Resize, CenterCrop, RandomCrop,
-    RandomHorizontalFlip)
+    RandomHorizontalFlip, ColorJitter)
 
 
 class RandomSizedCrop:
@@ -53,13 +53,14 @@ class RandomSizedCrop:
 
 
 train_transform = Compose([
-    RandomCrop(299, pad_if_needed=True),
+    RandomCrop(288),
+    ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
     RandomHorizontalFlip(),
 ])
 
 
 test_transform = Compose([
-    RandomCrop(299, pad_if_needed=True),
+    RandomCrop(288),
     RandomHorizontalFlip(),
 ])
 

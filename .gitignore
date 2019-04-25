@@ -6,4 +6,5 @@
 /imet/__pycache__
 *.*~
 /.ipynb_checkpoints
-/model_1
+/model_*
+_debug.png

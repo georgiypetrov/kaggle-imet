@@ -160,3 +160,58 @@ def plot(*args, ymin=None, ymax=None, xmin=None, xmax=None, params=False,
 def _smooth(ys, indices):
     return [np.mean(ys[idx: indices[i + 1]])
             for i, idx in enumerate(indices[:-1])]
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, gamma=2):
+        super().__init__()
+        self.gamma = gamma
+        
+    def forward(self, input, target):
+        if not (target.size() == input.size()):
+            raise ValueError("Target size ({}) must be the same as input size ({})"
+                             .format(target.size(), input.size()))
+
+        max_val = (-input).clamp(min=0)
+        loss = input - input * target + max_val + \
+            ((-max_val).exp() + (-input - max_val).exp()).log()
+
+        invprobs = nn.functional.logsigmoid(-input * (target * 2.0 - 1.0))
+        loss = (invprobs * self.gamma).exp() * loss
+        
+        return loss.sum(dim=1)
+
+
+losses_dict = {
+    '' :  nn.BCEWithLogitsLoss(reduction='none'),
+    'focal': FocalLoss()
+}
+
+
+def loss_function(loss):
+    return losses_dict[loss]
+
+
+models_dict = {
+    "resnet18": "resnet18",
+    "resnet34": "resnet34",
+    "resnet50": "resnet50",
+    "resnet101": "resnet101",
+    "resnet152": "resnet152",
+    "densenet161": "densenet161",
+    "densenet169": "densenet169",
+    "densenet121": "densenet121",
+    "densenet201": "densenet201",
+    "nasnetalarge": "pytorch-model-zoo",
+    "vgg16": "vgg16",
+    "vgg19": "vgg19",
+    "inception_v3": "inceptionv3",
+    "se_resnet50": "pytorch-model-zoo"
+}
+
+
+def set_models_path_env(model):
+    if not ON_KAGGLE:
+        return
+    os.environ["TORCH_MODEL_ZOO"] = f"/kaggle/input/{models_dict[model]}"
+    

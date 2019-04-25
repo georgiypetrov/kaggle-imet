@@ -20,8 +20,12 @@ def run(command):
     os.system('export PYTHONPATH=${PYTHONPATH}:/kaggle/working && ' + command)
 
 
+model = 'resnet50'
+fold = 0
+
+
 run('python setup.py develop --install-dir /kaggle/working')
 run('python -m imet.make_folds')
-run('python -m imet.main train model_1 --n-epochs 25')
-run('python -m imet.main predict_test model_1')
-run('python -m imet.make_submission model_1/test.h5 submission.csv --threshold 0.1')
+run(f'python -m imet.main train model_{model}_fold_{fold} --n-epochs 25 --model {model} --fold {fold}')
+run(f'python -m imet.main predict_test model_{model}_fold_{fold} --model {model}')
+run(f'python -m imet.make_submission model_{model}_fold_{fold}/test.h5 submission.csv --threshold 0.1')
