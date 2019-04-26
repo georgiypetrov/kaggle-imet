@@ -18,3 +18,10 @@ def resnet50(num_classes, pretrained=False):
 
 def nasnetalarge(num_classes, pretrained=False):
     return make_model('nasnetalarge', num_classes, pretrained, input_size=(288, 288), pool = AvgPool())
+
+
+def densenet201(num_classes, pretrained=False):
+    return make_model('densenet201', num_classes, pretrained, input_size=(288, 288), pool = AvgPool())
+
+
+    
