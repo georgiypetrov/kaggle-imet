@@ -14,3 +14,7 @@ def se_resnet50(num_classes, pretrained=False):
 
 def resnet50(num_classes, pretrained=False):
     return make_model('resnet50', num_classes, pretrained, input_size=(288, 288), pool = AvgPool())
+
+
+def nasnetalarge(num_classes, pretrained=False):
+    return make_model('nasnetalarge', num_classes, pretrained, input_size=(288, 288), pool = AvgPool())
