@@ -18,6 +18,7 @@ def main():
         DATA_ROOT / 'sample_submission.csv', index_col='id')
     dfs = []
     for prediction in args.predictions:
+        print(prediction)
         df = pd.read_hdf(prediction, index_col='id')
         df = df.reindex(sample_submission.index)
         dfs.append(df)

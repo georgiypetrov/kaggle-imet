@@ -26,7 +26,7 @@ from .utils import (
 def main():
     parser = argparse.ArgumentParser()
     arg = parser.add_argument
-    arg('mode', choices=['train', 'validate', 'predict_valid', 'predict_test'])
+    arg('mode', choices=['train', 'validate', 'validate_best', 'predict_valid', 'predict_test'])
     arg('run_root')
     arg('--model', default='resnet50')
     arg('--pretrained', type=int, default=1)
@@ -109,6 +109,11 @@ def main():
         load_model(model, run_root / 'model.pt')
         validation(model, criterion, tqdm.tqdm(valid_loader, desc='Validation'),
                    use_cuda=use_cuda, model_name=args.model)
+
+    elif args.mode == 'validate_best':
+        valid_loader = make_loader(valid_fold, test_transform)
+        load_model(model, run_root / 'best-model.pt')
+        validation(model, criterion, tqdm.tqdm(valid_loader, desc='Validation'),                   use_cuda=use_cuda, model_name=args.model)	
 
     elif args.mode.startswith('predict'):
         load_model(model, run_root / 'best-model.pt')
@@ -223,8 +228,8 @@ def train(args, model: nn.Module, criterion, *, params,
                 losses.append(loss.item())
                 mean_loss = np.mean(losses[-report_each:])
                 tq.set_postfix(loss=f'{mean_loss:.3f}')
-                if i and i % report_each == 0:
-                    write_event(log, step, loss=mean_loss)
+                # if i and i % report_each == 0:
+                #     write_event(log, step, loss=mean_loss)
             write_event(log, step, loss=mean_loss)
             tq.close()
             save(epoch + 1)

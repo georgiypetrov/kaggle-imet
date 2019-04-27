@@ -8,3 +8,6 @@
 /.ipynb_checkpoints
 /model_*
 _debug.png
+*.h5
+*.pyc
+*.csv

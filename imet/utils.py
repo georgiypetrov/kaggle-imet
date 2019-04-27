@@ -206,7 +206,8 @@ models_dict = {
     "vgg16": "vgg16",
     "vgg19": "vgg19",
     "inception_v3": "inceptionv3",
-    "se_resnet50": "pytorch-model-zoo"
+    "se_resnet50": "pytorch-model-zoo",
+    "mobilenet": "pytorch-model-zoo"
 }
 
 
