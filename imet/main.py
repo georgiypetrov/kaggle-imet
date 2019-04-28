@@ -15,15 +15,16 @@ from torch import nn, cuda
 from torch.optim import Adam
 import tqdm
 
-from . import models
+from .models import get_model
 from .dataset import TrainDataset, TTADataset, get_ids, N_CLASSES, DATA_ROOT
 from .transforms import train_transform, test_transform
 from .utils import (
     write_event, load_model, mean_df, ThreadingDataLoader as DataLoader,
-    ON_KAGGLE, loss_function, set_models_path_env)
+    ON_KAGGLE, loss_function, set_models_path_env, seed_everything)
 
 
 def main():
+    seed_everything()
     parser = argparse.ArgumentParser()
     arg = parser.add_argument
     arg('mode', choices=['train', 'validate', 'validate_best', 'predict_valid', 'predict_test'])
@@ -67,8 +68,7 @@ def main():
             num_workers=args.workers,
         )
     criterion = loss_function(args.loss)
-    model = getattr(models, args.model)(
-        num_classes=N_CLASSES, pretrained=args.pretrained)
+    model = get_model(args.model, num_classes=N_CLASSES, pretrained=args.pretrained)
     use_cuda = cuda.is_available()
     fresh_params = list(model._classifier.parameters())
     all_params = list(model.parameters())
@@ -136,7 +136,7 @@ def main():
             if args.limit:
                 ss = ss[:args.limit]
             predict(model, df=ss, root=test_root,
-                    out_path=run_root / 'test.h5',
+                    out_path=run_root / f'{args.run_root}.h5',
                     **predict_kwargs)
 
 

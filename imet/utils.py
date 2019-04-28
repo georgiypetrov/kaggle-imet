@@ -12,6 +12,7 @@ from scipy.stats.mstats import gmean
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
+import random
 
 
 ON_KAGGLE: bool = 'KAGGLE_WORKING_DIR' in os.environ
@@ -203,6 +204,7 @@ models_dict = {
     "densenet121": "densenet121",
     "densenet201": "densenet201",
     "nasnetalarge": "pytorch-model-zoo",
+    "nasnetamobile": "pytorch-model-zoo",
     "vgg16": "vgg16",
     "vgg19": "vgg19",
     "inception_v3": "inceptionv3",
@@ -216,3 +218,11 @@ def set_models_path_env(model):
         return
     os.environ["TORCH_MODEL_ZOO"] = f"/kaggle/input/{models_dict[model]}"
     
+
+def seed_everything(seed=1337):
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
