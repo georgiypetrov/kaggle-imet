@@ -8,5 +8,5 @@ class AvgPool(nn.Module):
         return F.avg_pool2d(x, x.shape[2:])
 
 
-def get_model(model, num_classes, pretrained):
-	return make_model(model, num_classes, pretrained, input_size=(288, 288), pool=AvgPool())
+def get_model(model, num_classes, pretrained, input_size):
+	return make_model(model, num_classes, pretrained, input_size=(input_size, input_size), pool=AvgPool())

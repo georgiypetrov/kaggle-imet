@@ -16,6 +16,7 @@ import random
 
 
 ON_KAGGLE: bool = 'KAGGLE_WORKING_DIR' in os.environ
+N_CLASSES = 1103
 
 
 def gmean_df(df: pd.DataFrame) -> pd.DataFrame:
@@ -163,36 +164,6 @@ def _smooth(ys, indices):
             for i, idx in enumerate(indices[:-1])]
 
 
-class FocalLoss(nn.Module):
-    def __init__(self, gamma=2):
-        super().__init__()
-        self.gamma = gamma
-        
-    def forward(self, input, target):
-        if not (target.size() == input.size()):
-            raise ValueError("Target size ({}) must be the same as input size ({})"
-                             .format(target.size(), input.size()))
-
-        max_val = (-input).clamp(min=0)
-        loss = input - input * target + max_val + \
-            ((-max_val).exp() + (-input - max_val).exp()).log()
-
-        invprobs = nn.functional.logsigmoid(-input * (target * 2.0 - 1.0))
-        loss = (invprobs * self.gamma).exp() * loss
-        
-        return loss.sum(dim=1)
-
-
-losses_dict = {
-    '' :  nn.BCEWithLogitsLoss(reduction='none'),
-    'focal': FocalLoss()
-}
-
-
-def loss_function(loss):
-    return losses_dict[loss]
-
-
 models_dict = {
     "resnet18": "resnet18",
     "resnet34": "resnet34",
@@ -226,3 +197,28 @@ def seed_everything(seed=1337):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
+
+
+def binarize_prediction(probabilities, threshold: float, argsorted=None,
+                        min_labels=1, max_labels=10):
+    """ Return matrix of 0/1 predictions, same shape as probabilities.
+    """
+    assert probabilities.shape[1] == N_CLASSES
+    if argsorted is None:
+        argsorted = probabilities.argsort(axis=1)
+    max_mask = _make_mask(argsorted, max_labels)
+    min_mask = _make_mask(argsorted, min_labels)
+    prob_mask = probabilities > threshold
+    return (max_mask & prob_mask) | min_mask
+
+
+def _make_mask(argsorted, top_n: int):
+    mask = np.zeros_like(argsorted, dtype=np.uint8)
+    col_indices = argsorted[:, -top_n:].reshape(-1)
+    row_indices = [i // top_n for i in range(len(col_indices))]
+    mask[row_indices, col_indices] = 1
+    return mask
+
+
+def _reduce_loss(loss):
+    return loss.sum() / loss.shape[0]

@@ -16,11 +16,14 @@ from torch.optim import Adam
 import tqdm
 
 from .models import get_model
-from .dataset import TrainDataset, TTADataset, get_ids, N_CLASSES, DATA_ROOT
+from .dataset import TrainDataset, TTADataset, get_ids, DATA_ROOT
 from .transforms import train_transform, test_transform
 from .utils import (
     write_event, load_model, mean_df, ThreadingDataLoader as DataLoader,
-    ON_KAGGLE, loss_function, set_models_path_env, seed_everything)
+    ON_KAGGLE, set_models_path_env, seed_everything, 
+    _reduce_loss, _make_mask, binarize_prediction, N_CLASSES)
+from .losses import loss_function
+from .optimizers import optimizer
 
 
 def main():
@@ -44,8 +47,9 @@ def main():
     arg('--debug', action='store_true')
     arg('--limit', type=int)
     arg('--fold', type=int, default=0)
-    arg('--loss', type=str, default='')
-    arg('--input-size', type=int, default=228)
+    arg('--loss', type=str, default='bce')
+    arg('--input-size', type=int, default=224)
+    arg('--optimizer', type=str, default='adam')
     args = parser.parse_args()
 
     run_root = Path(args.run_root)
@@ -68,7 +72,7 @@ def main():
             num_workers=args.workers,
         )
     criterion = loss_function(args.loss)
-    model = get_model(args.model, num_classes=N_CLASSES, pretrained=args.pretrained)
+    model = get_model(args.model, num_classes=N_CLASSES, pretrained=args.pretrained, input_size=args.input_size)
     use_cuda = cuda.is_available()
     fresh_params = list(model._classifier.parameters())
     all_params = list(model.parameters())
@@ -82,8 +86,8 @@ def main():
         (run_root / 'params.json').write_text(
             json.dumps(vars(args), indent=4, sort_keys=True))
 
-        train_loader = make_loader(train_fold, train_transform)
-        valid_loader = make_loader(valid_fold, test_transform)
+        train_loader = make_loader(train_fold, train_transform(args.input_size))
+        valid_loader = make_loader(valid_fold, test_transform(args.input_size))
         print(f'{len(train_loader.dataset):,} items in train, '
               f'{len(valid_loader.dataset):,} in valid')
 
@@ -94,7 +98,7 @@ def main():
             train_loader=train_loader,
             valid_loader=valid_loader,
             patience=args.patience,
-            init_optimizer=lambda params, lr: Adam(params, lr),
+            init_optimizer=lambda optimzer, params, lr: optimizer(optimizer, params, lr),
             use_cuda=use_cuda,
         )
 
@@ -105,15 +109,16 @@ def main():
             train(params=all_params, **train_kwargs)
 
     elif args.mode == 'validate':
-        valid_loader = make_loader(valid_fold, test_transform)
+        valid_loader = make_loader(valid_fold, test_transform(args.input_size))
         load_model(model, run_root / 'model.pt')
         validation(model, criterion, tqdm.tqdm(valid_loader, desc='Validation'),
                    use_cuda=use_cuda, model_name=args.model)
 
     elif args.mode == 'validate_best':
-        valid_loader = make_loader(valid_fold, test_transform)
+        valid_loader = make_loader(valid_fold, test_transform(args.input_size))
         load_model(model, run_root / 'best-model.pt')
-        validation(model, criterion, tqdm.tqdm(valid_loader, desc='Validation'),                   use_cuda=use_cuda, model_name=args.model)	
+        validation(model, criterion, tqdm.tqdm(valid_loader, desc='Validation'), 
+            use_cuda=use_cuda, model_name=args.model)	
 
     elif args.mode.startswith('predict'):
         load_model(model, run_root / 'best-model.pt')
@@ -122,10 +127,11 @@ def main():
             tta=args.tta,
             use_cuda=use_cuda,
             workers=args.workers,
+            input_size=args.input_size
         )
         if args.mode == 'predict_valid':
             predict(model, df=valid_fold, root=train_root,
-                    out_path=run_root / 'val.h5',
+                    out_path=run_root / f'val_{args.fold}.h5',
                     **predict_kwargs)
         elif args.mode == 'predict_test':
             test_root = DATA_ROOT / (
@@ -141,9 +147,9 @@ def main():
 
 
 def predict(model, root: Path, df: pd.DataFrame, out_path: Path,
-            batch_size: int, tta: int, workers: int, use_cuda: bool):
+            batch_size: int, tta: int, workers: int, use_cuda: bool, input_size: int):
     loader = DataLoader(
-        dataset=TTADataset(root, df, test_transform, tta=tta),
+        dataset=TTADataset(root, df, test_transform(input_size), tta=tta),
         shuffle=False,
         batch_size=batch_size,
         num_workers=workers,
@@ -173,7 +179,7 @@ def train(args, model: nn.Module, criterion, *, params,
     lr = args.lr
     n_epochs = n_epochs or args.n_epochs
     params = list(params)
-    optimizer = init_optimizer(params, lr)
+    optimizer = init_optimizer(args.optimizer, params, lr)
 
     run_root = Path(args.run_root)
     model_path = run_root / 'model.pt'
@@ -295,31 +301,6 @@ def validation(
         metrics.items(), key=lambda kv: -kv[1])))
 
     return metrics
-
-
-def binarize_prediction(probabilities, threshold: float, argsorted=None,
-                        min_labels=1, max_labels=10):
-    """ Return matrix of 0/1 predictions, same shape as probabilities.
-    """
-    assert probabilities.shape[1] == N_CLASSES
-    if argsorted is None:
-        argsorted = probabilities.argsort(axis=1)
-    max_mask = _make_mask(argsorted, max_labels)
-    min_mask = _make_mask(argsorted, min_labels)
-    prob_mask = probabilities > threshold
-    return (max_mask & prob_mask) | min_mask
-
-
-def _make_mask(argsorted, top_n: int):
-    mask = np.zeros_like(argsorted, dtype=np.uint8)
-    col_indices = argsorted[:, -top_n:].reshape(-1)
-    row_indices = [i // top_n for i in range(len(col_indices))]
-    mask[row_indices, col_indices] = 1
-    return mask
-
-
-def _reduce_loss(loss):
-    return loss.sum() / loss.shape[0]
 
 
 if __name__ == '__main__':

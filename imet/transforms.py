@@ -52,17 +52,21 @@ class RandomSizedCrop:
         return crop(scale(img))
 
 
-train_transform = Compose([
-    RandomCrop(288),
-    ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
-    RandomHorizontalFlip(),
-])
+def train_transform(input_size): 
+    return Compose([
+        Resize(input_size),
+        RandomCrop(input_size),
+        ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
+        RandomHorizontalFlip(),
+    ])
 
 
-test_transform = Compose([
-    RandomCrop(288),
-    RandomHorizontalFlip(),
-])
+def test_transform(input_size):
+    return Compose([
+        Resize(input_size),
+        RandomCrop(input_size),
+        RandomHorizontalFlip(),
+    ])
 
 
 tensor_transform = Compose([
