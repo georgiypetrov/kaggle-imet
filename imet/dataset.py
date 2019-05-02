@@ -8,10 +8,9 @@ import torch
 from torch.utils.data import Dataset
 
 from .transforms import tensor_transform
-from .utils import ON_KAGGLE
+from .utils import ON_KAGGLE, N_CLASSES
 
 
-N_CLASSES = 1103
 DATA_ROOT = Path('../input/imet-2019-fgvc6' if ON_KAGGLE else './data')
 
 

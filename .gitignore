@@ -11,3 +11,4 @@ _debug.png
 *.h5
 *.pyc
 *.csv
+/zoo

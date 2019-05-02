@@ -180,7 +180,8 @@ models_dict = {
     "vgg19": "vgg19",
     "inception_v3": "inceptionv3",
     "se_resnet50": "pytorch-model-zoo",
-    "mobilenet": "pytorch-model-zoo"
+    "mobilenet": "pytorch-model-zoo",
+    "inceptionresnetv2": "pytorch-model-zoo"
 }
 
 

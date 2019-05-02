@@ -16,7 +16,7 @@ def make_predicts(models, force=False):
     for model_path in models:
         print(model_path)
         model = "_".join(model_path.split("_")[1:-2])
-        if not force and os.path.isfile(os.path.join(model_path, f'{model_path}.h5')):
+        if not force and os.path.isfile(os.path.join(model_path, 'test.h5')):
             continue
         print(f'predicting {model_path} {model}')
         os.system(f'python -m imet.main predict_test {model_path} --model {model}')
@@ -27,14 +27,14 @@ def make_valid_predicts(models, force=False):
         for fold in range(5):
             print(model, fold)
             model_path = f'model_{model}_fold_{fold}'
-            if not force and os.path.isfile(os.path.join(model_path, f'val_{fold}.h5')):
+            if not force and os.path.isfile(os.path.join(model_path, 'val.h5')):
                 continue
             print(f'predicting {model_path} {model}')
             os.system(f'python -m imet.main predict_valid {model_path} --model {model} --fold {fold}')        
 
 
 def make_submission(models):
-    models = ' '.join(map(lambda model_path: os.path.join(model_path, f'{model_path}.h5'), models))
+    models = ' '.join(map(lambda model_path: os.path.join(model_path, 'test.h5'), models))
     os.system(f'python -m imet.make_submission {models} submission.csv --threshold 0.1')
 
 

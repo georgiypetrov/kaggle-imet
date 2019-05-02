@@ -38,7 +38,7 @@ def main():
     arg('--step', type=int, default=1)
     arg('--workers', type=int, default=2 if ON_KAGGLE else 6)
     arg('--lr', type=float, default=1e-4)
-    arg('--patience', type=int, default=3)
+    arg('--patience', type=int, default=4)
     arg('--clean', action='store_true')
     arg('--n-epochs', type=int, default=100)
     arg('--epoch-size', type=int)
@@ -48,8 +48,8 @@ def main():
     arg('--limit', type=int)
     arg('--fold', type=int, default=0)
     arg('--loss', type=str, default='bce')
-    arg('--input-size', type=int, default=224)
-    arg('--optimizer', type=str, default='adam')
+    arg('--input-size', type=int, default=288)
+    arg('--optimizer', type=str, default='sgd')
     args = parser.parse_args()
 
     run_root = Path(args.run_root)
@@ -80,8 +80,11 @@ def main():
         model = model.cuda()
 
     if args.mode == 'train':
+        is_continue = False
         if run_root.exists() and args.clean:
             shutil.rmtree(run_root)
+        if run_root.exists():
+            is_continue = True
         run_root.mkdir(exist_ok=True, parents=True)
         (run_root / 'params.json').write_text(
             json.dumps(vars(args), indent=4, sort_keys=True))
@@ -102,7 +105,7 @@ def main():
             use_cuda=use_cuda,
         )
 
-        if args.pretrained:
+        if args.pretrained and not is_continue:
             if train(params=fresh_params, n_epochs=1, **train_kwargs):
                 train(params=all_params, **train_kwargs)
         else:
@@ -131,7 +134,7 @@ def main():
         )
         if args.mode == 'predict_valid':
             predict(model, df=valid_fold, root=train_root,
-                    out_path=run_root / f'val_{args.fold}.h5',
+                    out_path=run_root / 'val.h5',
                     **predict_kwargs)
         elif args.mode == 'predict_test':
             test_root = DATA_ROOT / (
@@ -142,7 +145,7 @@ def main():
             if args.limit:
                 ss = ss[:args.limit]
             predict(model, df=ss, root=test_root,
-                    out_path=run_root / f'{args.run_root}.h5',
+                    out_path=run_root / 'test.h5',
                     **predict_kwargs)
 
 
@@ -175,7 +178,7 @@ def predict(model, root: Path, df: pd.DataFrame, out_path: Path,
 
 def train(args, model: nn.Module, criterion, *, params,
           train_loader, valid_loader, init_optimizer, use_cuda,
-          n_epochs=None, patience=2, max_lr_changes=2) -> bool:
+          n_epochs=None, patience=4, max_lr_changes=2) -> bool:
     lr = args.lr
     n_epochs = n_epochs or args.n_epochs
     params = list(params)
@@ -221,8 +224,6 @@ def train(args, model: nn.Module, criterion, *, params,
                 if use_cuda:
                     inputs, targets = inputs.cuda(), targets.cuda()
                 outputs = model(inputs)
-                if args.model == "inception_v3":
-                    outputs = outputs[0]
                 loss = _reduce_loss(criterion(outputs, targets))
                 batch_size = inputs.size(0)
                 (batch_size * loss).backward()
