@@ -12,3 +12,4 @@ _debug.png
 *.pyc
 *.csv
 /zoo
+/exp

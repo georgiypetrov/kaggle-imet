@@ -37,7 +37,7 @@ def main():
     arg('--batch-size', type=int, default=64)
     arg('--step', type=int, default=1)
     arg('--workers', type=int, default=2 if ON_KAGGLE else 6)
-    arg('--lr', type=float, default=1e-4)
+    arg('--lr', type=float, default=3e-4)
     arg('--patience', type=int, default=4)
     arg('--clean', action='store_true')
     arg('--n-epochs', type=int, default=100)
@@ -49,7 +49,7 @@ def main():
     arg('--fold', type=int, default=0)
     arg('--loss', type=str, default='bce')
     arg('--input-size', type=int, default=288)
-    arg('--optimizer', type=str, default='sgd')
+    arg('--optimizer', type=str, default='adamw')
     args = parser.parse_args()
 
     run_root = Path(args.run_root)
@@ -256,7 +256,7 @@ def train(args, model: nn.Module, criterion, *, params,
                 lr /= 5
                 print(f'lr updated to {lr}')
                 lr_reset_epoch = epoch
-                optimizer = init_optimizer(params, lr)
+                optimizer = init_optimizer(args.optimizer, params, lr)
         except KeyboardInterrupt:
             tq.close()
             print('Ctrl+C, saving snapshot')
