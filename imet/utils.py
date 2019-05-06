@@ -57,7 +57,7 @@ class ThreadingDataLoader(DataLoader):
     def _get_item(self, i):
         return self.dataset[i]
 
-
+i
 def write_event(log, step: int, **data):
     data['step'] = step
     data['dt'] = datetime.now().isoformat()
@@ -181,7 +181,8 @@ models_dict = {
     "inception_v3": "inceptionv3",
     "se_resnet50": "pytorch-model-zoo",
     "mobilenet": "pytorch-model-zoo",
-    "inceptionresnetv2": "pytorch-model-zoo"
+    "inceptionresnetv2": "pytorch-model-zoo",
+    "se_resnext101_32x4d": "pytorch-model-zoo"
 }
 
 
