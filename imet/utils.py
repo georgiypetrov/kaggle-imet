@@ -57,7 +57,7 @@ class ThreadingDataLoader(DataLoader):
     def _get_item(self, i):
         return self.dataset[i]
 
-i
+
 def write_event(log, step: int, **data):
     data['step'] = step
     data['dt'] = datetime.now().isoformat()
