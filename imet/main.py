@@ -77,7 +77,6 @@ def main():
     model = get_model(args.model, num_classes=N_CLASSES, pretrained=args.pretrained, input_size=args.input_size)
     use_cuda = cuda.is_available()
     fresh_params = list(model._classifier.parameters())
-    all_params = list(model.parameters())
     if use_cuda:
         model = model.cuda()
 
@@ -112,10 +111,12 @@ def main():
         )
 
         if args.pretrained and not is_continue:
-            if train(params=fresh_params, n_epochs=1, **train_kwargs):
-                train(params=all_params, **train_kwargs)
-        else:
-            train(params=all_params, **train_kwargs)
+            train(params=fresh_params, n_epochs=1, **train_kwargs)
+        model = get_model(args.model, num_classes=N_CLASSES, pretrained=args.pretrained, input_size=args.input_size)
+        if use_cuda:
+                model = model.cuda()
+        train_kwargs['model'] = model
+        train(params=model.parameters(), **train_kwargs)
 
     elif args.mode == 'validate':
         valid_loader = make_loader(valid_fold, test_transform(args.input_size))
