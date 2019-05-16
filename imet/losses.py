@@ -47,6 +47,8 @@ class FBeta(nn.Module):
         precision = tp / (predict.sum(dim=0) + 1e-8)
         recall = tp / (target.sum(dim=0) + 1e-8)
         f1 = (1 + self.beta ** 2) * (precision * recall / (self.beta ** 2 * precision + recall + 1e-8))
+        if self.reduction == 'none':
+            loss = loss.mean(dim=0)
         if self.reduction == 'mean':
             f1 = f1.mean()
         return 1 - f1 + loss

@@ -55,7 +55,6 @@ class RandomSizedCrop:
 def train_transform(input_size): 
     return Compose([
         RandomSizedCrop(input_size),
-        ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
         RandomHorizontalFlip(),
     ])
 

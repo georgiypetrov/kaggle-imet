@@ -24,6 +24,7 @@ from .utils import (
     _reduce_loss, _make_mask, binarize_prediction, N_CLASSES)
 from .losses import loss_function
 from .optimizers import optimizer
+from apex import amp
 
 
 def main():
@@ -37,8 +38,8 @@ def main():
     arg('--batch-size', type=int, default=64)
     arg('--step', type=int, default=1)
     arg('--workers', type=int, default=2 if ON_KAGGLE else 6)
-    arg('--lr', type=float, default=3e-4)
-    arg('--patience', type=int, default=4)
+    arg('--lr', type=float, default=1e-4)
+    arg('--patience', type=int, default=3)
     arg('--clean', action='store_true')
     arg('--n-epochs', type=int, default=100)
     arg('--epoch-size', type=int)
@@ -49,7 +50,8 @@ def main():
     arg('--fold', type=int, default=0)
     arg('--loss', type=str, default='bce')
     arg('--input-size', type=int, default=288)
-    arg('--optimizer', type=str, default='adamw')
+    arg('--optimizer', type=str, default='adam')
+    arg('--mixed-precision', type=int, default=1)
     args = parser.parse_args()
 
     run_root = Path(args.run_root)
@@ -79,6 +81,9 @@ def main():
     if use_cuda:
         model = model.cuda()
 
+    if args.mixed_precision and args.mode != 'train':
+        model = amp.initialize(model, opt_level='O2')
+
     if args.mode == 'train':
         is_continue = False
         if run_root.exists() and args.clean:
@@ -101,8 +106,9 @@ def main():
             train_loader=train_loader,
             valid_loader=valid_loader,
             patience=args.patience,
-            init_optimizer=lambda optimzer, params, lr: optimizer(optimizer, params, lr),
+            init_optimizer=lambda optimzer, params, lr: optimizer(optimizer, params, lr, mixed_precision=args.mixed_precision),
             use_cuda=use_cuda,
+            mixed_precision=args.mixed_precision
         )
 
         if args.pretrained and not is_continue:
@@ -150,7 +156,8 @@ def main():
 
 
 def predict(model, root: Path, df: pd.DataFrame, out_path: Path,
-            batch_size: int, tta: int, workers: int, use_cuda: bool, input_size: int):
+            batch_size: int, tta: int, workers: int, use_cuda: bool, 
+            input_size: int):
     loader = DataLoader(
         dataset=TTADataset(root, df, test_transform(input_size), tta=tta),
         shuffle=False,
@@ -178,11 +185,14 @@ def predict(model, root: Path, df: pd.DataFrame, out_path: Path,
 
 def train(args, model: nn.Module, criterion, *, params,
           train_loader, valid_loader, init_optimizer, use_cuda,
-          n_epochs=None, patience=4, max_lr_changes=2) -> bool:
+          n_epochs=None, patience=4, max_lr_changes=2, mixed_precision=True) -> bool:
     lr = args.lr
     n_epochs = n_epochs or args.n_epochs
     params = list(params)
     optimizer = init_optimizer(args.optimizer, params, lr)
+
+    if mixed_precision:
+        model, optimizer = amp.initialize(model, optimizer, opt_level="O2")
 
     run_root = Path(args.run_root)
     model_path = run_root / 'model.pt'
@@ -192,6 +202,7 @@ def train(args, model: nn.Module, criterion, *, params,
         epoch = state['epoch']
         step = state['step']
         best_valid_loss = state['best_valid_loss']
+        print(best_valid_loss)
     else:
         epoch = 1
         step = 0
@@ -226,7 +237,11 @@ def train(args, model: nn.Module, criterion, *, params,
                 outputs = model(inputs)
                 loss = _reduce_loss(criterion(outputs, targets))
                 batch_size = inputs.size(0)
-                (batch_size * loss).backward()
+                if mixed_precision:
+                    with amp.scale_loss(loss, optimizer) as scaled_loss:
+                        (batch_size * scaled_loss).backward()
+                else:
+                    (batch_size * loss).backward()
                 if (i + 1) % args.step == 0:
                     optimizer.step()
                     optimizer.zero_grad()
@@ -256,7 +271,12 @@ def train(args, model: nn.Module, criterion, *, params,
                 lr /= 5
                 print(f'lr updated to {lr}')
                 lr_reset_epoch = epoch
-                optimizer = init_optimizer(args.optimizer, params, lr)
+
+                if mixed_precision:
+                    update_learning_rate(optimizer, lr)
+                else:
+                    optimizer = init_optimizer(args.optimizer, params, lr)
+                
         except KeyboardInterrupt:
             tq.close()
             print('Ctrl+C, saving snapshot')
@@ -302,6 +322,11 @@ def validation(
         metrics.items(), key=lambda kv: -kv[1])))
 
     return metrics
+
+
+def update_learning_rate(optimizer: torch.optim.Optimizer, lr: float) -> None:
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
 
 
 if __name__ == '__main__':
