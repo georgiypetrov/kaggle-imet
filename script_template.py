@@ -23,7 +23,6 @@ def run(command):
 model = 'resnet50'
 fold = 0
 
-run('cd /kaggle/input/apex-master/apex-master/apex-master/ && pip install --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" . && cd /kaggle/working')
 run('python setup.py develop --install-dir /kaggle/working')
 run('python -m imet.make_folds')
 run(f'python -m imet.main train model_{model}_fold_{fold} --n-epochs 25 --model {model} --fold {fold}')

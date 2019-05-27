@@ -21,10 +21,9 @@ from .transforms import train_transform, test_transform
 from .utils import (
     write_event, load_model, mean_df, ThreadingDataLoader as DataLoader,
     ON_KAGGLE, set_models_path_env, seed_everything, 
-    _reduce_loss, _make_mask, binarize_prediction, N_CLASSES)
+    _reduce_loss, _make_mask, binarize_prediction, N_CLASSES, create_class_weight)
 from .losses import loss_function
 from .optimizers import optimizer
-from apex import amp
 
 
 def main():
@@ -51,7 +50,7 @@ def main():
     arg('--loss', type=str, default='bce')
     arg('--input-size', type=int, default=288)
     arg('--optimizer', type=str, default='adam')
-    arg('--mixed-precision', type=int, default=1)
+    arg('--use-weight', type=int, default=0)
     args = parser.parse_args()
 
     run_root = Path(args.run_root)
@@ -73,15 +72,17 @@ def main():
             batch_size=args.batch_size,
             num_workers=args.workers,
         )
-    criterion = loss_function(args.loss)
-    model = get_model(args.model, num_classes=N_CLASSES, pretrained=args.pretrained, input_size=args.input_size)
     use_cuda = cuda.is_available()
+    pos_weight = None
+    if args.use_weight:
+        pos_weight = torch.Tensor(create_class_weight(DATA_ROOT))
+    if use_cuda and pos_weight is not None:
+        pos_weight = pos_weight.cuda()
+    criterion = loss_function(args.loss, pos_weight)
+    
+    model = get_model(args.model, num_classes=N_CLASSES, pretrained=args.pretrained, input_size=args.input_size, use_cuda=use_cuda)
     fresh_params = list(model._classifier.parameters())
-    if use_cuda:
-        model = model.cuda()
 
-    if args.mixed_precision and args.mode != 'train':
-        model = amp.initialize(model, opt_level='O2')
 
     if args.mode == 'train':
         is_continue = False
@@ -105,16 +106,15 @@ def main():
             train_loader=train_loader,
             valid_loader=valid_loader,
             patience=args.patience,
-            init_optimizer=lambda optimzer, params, lr: optimizer(optimizer, params, lr, mixed_precision=args.mixed_precision),
-            use_cuda=use_cuda,
-            mixed_precision=args.mixed_precision
+            init_optimizer=lambda optimzer, params, lr: optimizer(optimizer, params, lr),
+            use_cuda=use_cuda
         )
 
         if args.pretrained and not is_continue:
             train(params=fresh_params, n_epochs=1, **train_kwargs)
         model = get_model(args.model, num_classes=N_CLASSES, pretrained=args.pretrained, input_size=args.input_size)
         if use_cuda:
-                model = model.cuda()
+            model = model.cuda()
         train_kwargs['model'] = model
         train(params=model.parameters(), **train_kwargs)
 
@@ -186,14 +186,11 @@ def predict(model, root: Path, df: pd.DataFrame, out_path: Path,
 
 def train(args, model: nn.Module, criterion, *, params,
           train_loader, valid_loader, init_optimizer, use_cuda,
-          n_epochs=None, patience=4, max_lr_changes=2, mixed_precision=True) -> bool:
+          n_epochs=None, patience=4, max_lr_changes=2) -> bool:
     lr = args.lr
     n_epochs = n_epochs or args.n_epochs
     params = list(params)
     optimizer = init_optimizer(args.optimizer, params, lr)
-
-    if mixed_precision:
-        model, optimizer = amp.initialize(model, optimizer, opt_level="O2")
 
     run_root = Path(args.run_root)
     model_path = run_root / 'model.pt'
@@ -237,12 +234,10 @@ def train(args, model: nn.Module, criterion, *, params,
                     inputs, targets = inputs.cuda(), targets.cuda()
                 outputs = model(inputs)
                 loss = _reduce_loss(criterion(outputs, targets))
+
                 batch_size = inputs.size(0)
-                if mixed_precision:
-                    with amp.scale_loss(loss, optimizer) as scaled_loss:
-                        (batch_size * scaled_loss).backward()
-                else:
-                    (batch_size * loss).backward()
+                (batch_size * loss).backward()
+
                 if (i + 1) % args.step == 0:
                     optimizer.step()
                     optimizer.zero_grad()
@@ -273,10 +268,7 @@ def train(args, model: nn.Module, criterion, *, params,
                 print(f'lr updated to {lr}')
                 lr_reset_epoch = epoch
 
-                if mixed_precision:
-                    update_learning_rate(optimizer, lr)
-                else:
-                    optimizer = init_optimizer(args.optimizer, params, lr)
+                optimizer = init_optimizer(args.optimizer, params, lr)
                 
         except KeyboardInterrupt:
             tq.close()
@@ -298,14 +290,12 @@ def validation(
             if use_cuda:
                 inputs, targets = inputs.cuda(), targets.cuda()
             outputs = model(inputs)
-            if model_name == "inception_v3":
-                outputs = outputs[0]
             loss = criterion(outputs, targets)
             all_losses.append(_reduce_loss(loss).item())
             predictions = torch.sigmoid(outputs)
             all_predictions.append(predictions.cpu().numpy())
     all_predictions = np.concatenate(all_predictions)
-    all_targets = np.concatenate(all_targets)
+    all_targets = np.concatenate(all_targets) 
 
     def get_score(y_pred):
         with warnings.catch_warnings():
@@ -315,7 +305,7 @@ def validation(
 
     metrics = {}
     argsorted = all_predictions.argsort(axis=1)
-    for threshold in [0.05, 0.10, 0.15, 0.20]:
+    for threshold in [0.07, 0.08, 0.09, 0.10, 0.15]:
         metrics[f'valid_f2_th_{threshold:.2f}'] = get_score(
             binarize_prediction(all_predictions, threshold, argsorted))
     metrics['valid_loss'] = np.mean(all_losses)
@@ -324,10 +314,6 @@ def validation(
 
     return metrics
 
-
-def update_learning_rate(optimizer: torch.optim.Optimizer, lr: float) -> None:
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
 
 
 if __name__ == '__main__':

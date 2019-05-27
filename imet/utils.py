@@ -4,7 +4,7 @@ import glob
 import os
 from pathlib import Path
 from multiprocessing.pool import ThreadPool
-from typing import Dict
+from typing import Dict, List
 
 import numpy as np
 import pandas as pd
@@ -13,6 +13,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 import random
+from collections import Counter
 
 
 ON_KAGGLE: bool = 'KAGGLE_WORKING_DIR' in os.environ
@@ -225,3 +226,22 @@ def _make_mask(argsorted, top_n: int):
 
 def _reduce_loss(loss):
     return loss.sum() / loss.shape[0]
+
+
+def create_class_weight(DATA_ROOT: Path, mu: float = 0.5) -> List[float]:
+    df = pd.read_csv(DATA_ROOT / 'train.csv')
+    labels_dict = cls_counts = Counter(cls for classes in df['attribute_ids'].str.split()
+                         for cls in classes)
+    total = np.sum(list(labels_dict.values()))
+    keys = [int(key) for key in labels_dict.keys()]
+    keys.sort()
+#     class_weight = dict()
+    class_weight_log = dict()
+    for key in keys:
+        str_key = str(key)
+#         score = total / float(labels_dict[str_key])
+        score_log = np.log(mu * total / float(labels_dict[str_key]))
+#         class_weight[key] = round(score, 2) if score > 1.0 else round(1.0, 2)
+        class_weight_log[key] = round(score_log, 2) if score_log > 1.0 else round(1.0, 2)
+
+    return list(class_weight_log.values())

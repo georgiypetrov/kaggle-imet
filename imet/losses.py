@@ -62,5 +62,8 @@ losses_dict = {
 }
 
 
-def loss_function(loss):
-    return losses_dict[loss]
+def loss_function(loss, pos_weight=None):
+    criterion = losses_dict[loss]
+    if pos_weight is not None:
+        criterion = nn.BCEWithLogitsLoss(reduction='none', pos_weight=pos_weight)
+    return criterion

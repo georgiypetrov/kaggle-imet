@@ -1,7 +1,6 @@
 import torch
 import math
 from torch.optim.optimizer import Optimizer
-from apex.optimizers import FusedAdam
 
 
 class AdamW(Optimizer):
@@ -112,14 +111,12 @@ class AdamW(Optimizer):
         return loss
 
 
-def optimizer(optimizer: str, params: list, lr: float, momentum=0.9, weight_decay=0.0001, mixed_precision=True):
+def optimizer(optimizer: str, params: list, lr: float, momentum=0.9, weight_decay=0.0001):
     opt = None
     if optimizer == 'sgd':
         opt = torch.optim.SGD(params, lr=lr, momentum=momentum, weight_decay=weight_decay)
     elif optimizer == 'adamw':
         opt = AdamW(params, lr=lr, momentum=momentum, weight_decay=weight_decay)
-    elif mixed_precision and optimizer == 'adam':
-        opt = FusedAdam(params, lr=lr)
     else:
         opt = torch.optim.Adam(params, lr=lr)
     return opt
