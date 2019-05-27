@@ -193,26 +193,25 @@ def train(args, model: nn.Module, criterion, *, params,
     optimizer = init_optimizer(args.optimizer, params, lr)
 
     run_root = Path(args.run_root)
-    model_path = run_root / 'model.pt'
+    model_path = run_root / 'model-1.pt'
     best_model_path = run_root / 'best-model.pt'
+    best_valid_loss = 0.0
     if model_path.exists():
         state = load_model(model, model_path)
         epoch = state['epoch']
         step = state['step']
-        best_valid_loss = state['best_valid_loss']
-        print(best_valid_loss)
     else:
         epoch = 1
         step = 0
         best_valid_loss = float('inf')
     lr_changes = 0
 
-    save = lambda ep: torch.save({
+    save = lambda ep, save_name: torch.save({
         'model': model.state_dict(),
         'epoch': ep,
         'step': step,
         'best_valid_loss': best_valid_loss
-    }, str(model_path))
+    }, str(run_root / save_name))
 
     report_each = 10
     log = run_root.joinpath('train.log').open('at', encoding='utf8')
@@ -248,16 +247,15 @@ def train(args, model: nn.Module, criterion, *, params,
                 tq.set_postfix(loss=f'{mean_loss:.3f}')
                 # if i and i % report_each == 0:
                 #     write_event(log, step, loss=mean_loss)
-            write_event(log, step, loss=mean_loss)
             tq.close()
-            save(epoch + 1)
+            save(epoch + 1, f'model-{epoch}.pt')
             valid_metrics = validation(model, criterion, valid_loader, use_cuda, args.model)
-            write_event(log, step, **valid_metrics)
+            write_event(log, step, epoch, **valid_metrics)
             valid_loss = valid_metrics['valid_loss']
             valid_losses.append(valid_loss)
             if valid_loss < best_valid_loss:
                 best_valid_loss = valid_loss
-                shutil.copy(str(model_path), str(best_model_path))
+                save(epoch + 1, 'best-model.pt')
             elif (patience and epoch - lr_reset_epoch > patience and
                   min(valid_losses[-patience:]) > best_valid_loss):
                 # "patience" epochs without improvement
@@ -273,7 +271,7 @@ def train(args, model: nn.Module, criterion, *, params,
         except KeyboardInterrupt:
             tq.close()
             print('Ctrl+C, saving snapshot')
-            save(epoch)
+            save(epoch, 'model-interrupted.pt')
             print('done.')
             return False
     return True
