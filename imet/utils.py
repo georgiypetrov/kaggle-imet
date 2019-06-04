@@ -172,6 +172,7 @@ models_dict = {
     "resnet50": "resnet50",
     "resnet101": "resnet101",
     "resnet152": "resnet152",
+    "senet154": "senet154",
     "densenet161": "densenet161",
     "densenet169": "densenet169",
     "densenet121": "densenet121",

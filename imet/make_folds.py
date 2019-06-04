@@ -10,8 +10,10 @@ import pathlib
 import glob
 
 
-def make_folds(n_folds: int) -> pd.DataFrame:
+def make_folds(n_folds: int, pseudo: str) -> pd.DataFrame:
     df = pd.read_csv(DATA_ROOT / 'train.csv')
+    if pseudo != '':
+        df = pd.read_csv(pseudo)
     cls_counts = Counter(cls for classes in df['attribute_ids'].str.split()
                          for cls in classes)
     fold_cls_counts = defaultdict(int)
@@ -41,8 +43,9 @@ def make_sample_submission_csv():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--n-folds', type=int, default=5)
+    parser.add_argument(--pseudo, type=str, default='')
     args = parser.parse_args()
-    df = make_folds(n_folds=args.n_folds)
+    df = make_folds(n_folds=args.n_folds, pseudo=args.pseudo)
     df.to_csv('folds.csv', index=None)
     make_sample_submission_csv()
 
