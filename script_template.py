@@ -35,14 +35,14 @@ params = {
         'folds': [1, 3, 4],
         # 0.595, 0.598, 0.596, 0.598, 0.598
         'tta': 6,
-        'batch_size': 48,
+        'batch_size': 64,
         'source': '/kaggle/input/imetzoo/zoo/'
     },
     'senet154': {
         'input_size': 320,
         'folds': [0, 1, 4],
         'tta': 6,
-        'batch_size': 16,
+        'batch_size': 64,
         'source': '/kaggle/input/imetzoo/zoo/'
     }
 }
