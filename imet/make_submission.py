@@ -3,7 +3,7 @@ import argparse
 import pandas as pd
 
 from .utils import mean_df, binarize_prediction
-from .dataset import DATA_ROOT
+from .dataset import DATA_ROOT, TEST_FOLDS_ROOT
 
 
 def main():
@@ -14,7 +14,7 @@ def main():
     arg('--threshold', type=float, default=0.2)
     args = parser.parse_args()
     sample_submission = pd.read_csv(
-        DATA_ROOT / 'sample_submission.csv', index_col='id')
+        TEST_FOLDS_ROOT / 'sample_submission.csv', index_col='id')
     dfs = []
     for prediction in args.predictions:
         print(prediction)

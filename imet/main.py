@@ -54,16 +54,16 @@ def main():
     args = parser.parse_args()
 
     run_root = Path(args.run_root)
-    # folds = pd.read_csv('folds.csv')
-    # train_root = DATA_ROOT / ('train_sample' if args.use_sample else 'train')
-    # set_models_path_env(args.model)
-    # if args.use_sample:
-    #     folds = folds[folds['Id'].isin(set(get_ids(train_root)))]
-    # train_fold = folds[folds['fold'] != args.fold]
-    # valid_fold = folds[folds['fold'] == args.fold]
-    # if args.limit:
-    #     train_fold = train_fold[:args.limit]
-    #     valid_fold = valid_fold[:args.limit]
+    folds = pd.read_csv('folds.csv')
+    train_root = DATA_ROOT / ('train_sample' if args.use_sample else 'train')
+    set_models_path_env(args.model)
+    if args.use_sample:
+        folds = folds[folds['Id'].isin(set(get_ids(train_root)))]
+    train_fold = folds[folds['fold'] != args.fold]
+    valid_fold = folds[folds['fold'] == args.fold]
+    if args.limit:
+        train_fold = train_fold[:args.limit]
+        valid_fold = valid_fold[:args.limit]
 
     def make_loader(df: pd.DataFrame, image_transform) -> DataLoader:
         return DataLoader(
@@ -81,57 +81,58 @@ def main():
     criterion = loss_function(args.loss, pos_weight)
     
     model = get_model(args.model, num_classes=N_CLASSES, pretrained=args.pretrained, input_size=args.input_size, use_cuda=use_cuda)
-    fresh_params = list(model._classifier.parameters())
+    fresh_params = list()
+    if args.model.startswith('efficientnet'):
+        fresh_params = list(model._fc.parameters())
+    else:
+        fresh_params = list(model._classifier.parameters())
 
 
     if args.mode == 'train':
-        pass
-        # is_continue = False
-        # if run_root.exists() and args.clean:
-        #     shutil.rmtree(run_root)
-        # if run_root.exists():
-        #     is_continue = True
-        # run_root.mkdir(exist_ok=True, parents=True)
-        # (run_root / 'params.json').write_text(
-        #     json.dumps(vars(args), indent=4, sort_keys=True))
+        is_continue = False
+        if run_root.exists() and args.clean:
+            shutil.rmtree(run_root)
+        if run_root.exists():
+            is_continue = True
+        run_root.mkdir(exist_ok=True, parents=True)
+        (run_root / 'params.json').write_text(
+            json.dumps(vars(args), indent=4, sort_keys=True))
 
-        # train_loader = make_loader(train_fold, train_transform(args.input_size))
-        # valid_loader = make_loader(valid_fold, test_transform(args.input_size))
-        # print(f'{len(train_loader.dataset):,} items in train, '
-        #       f'{len(valid_loader.dataset):,} in valid')
+        train_loader = make_loader(train_fold, train_transform(args.input_size))
+        valid_loader = make_loader(valid_fold, test_transform(args.input_size))
+        print(f'{len(train_loader.dataset):,} items in train, '
+              f'{len(valid_loader.dataset):,} in valid')
 
-        # train_kwargs = dict(
-        #     args=args,
-        #     model=model,
-        #     criterion=criterion,
-        #     train_loader=train_loader,
-        #     valid_loader=valid_loader,
-        #     patience=args.patience,
-        #     init_optimizer=lambda optimzer, params, lr: optimizer(optimizer, params, lr),
-        #     use_cuda=use_cuda
-        # )
+        train_kwargs = dict(
+            args=args,
+            model=model,
+            criterion=criterion,
+            train_loader=train_loader,
+            valid_loader=valid_loader,
+            patience=args.patience,
+            init_optimizer=lambda optimzer, params, lr: optimizer(optimizer, params, lr),
+            use_cuda=use_cuda
+        )
 
-        # if args.pretrained and not is_continue:
-        #     train(params=fresh_params, n_epochs=1, **train_kwargs)
-        # model = get_model(args.model, num_classes=N_CLASSES, pretrained=args.pretrained, input_size=args.input_size)
-        # if use_cuda:
-        #     model = model.cuda()
-        # train_kwargs['model'] = model
-        # train(params=model.parameters(), **train_kwargs)
+        if args.pretrained and not is_continue:
+            train(params=fresh_params, n_epochs=1, **train_kwargs)
+        model = get_model(args.model, num_classes=N_CLASSES, pretrained=args.pretrained, input_size=args.input_size)
+        if use_cuda:
+            model = model.cuda()
+        train_kwargs['model'] = model
+        train(params=model.parameters(), **train_kwargs)
 
     elif args.mode == 'validate':
-        pass
-        # valid_loader = make_loader(valid_fold, test_transform(args.input_size))
-        # load_model(model, run_root / 'model.pt')
-        # validation(model, criterion, tqdm.tqdm(valid_loader, desc='Validation'),
-        #            use_cuda=use_cuda, model_name=args.model)
+        valid_loader = make_loader(valid_fold, test_transform(args.input_size))
+        load_model(model, run_root / 'model.pt')
+        validation(model, criterion, tqdm.tqdm(valid_loader, desc='Validation'),
+                   use_cuda=use_cuda, model_name=args.model)
 
     elif args.mode == 'validate_best':
-        pass
-        # valid_loader = make_loader(valid_fold, test_transform(args.input_size))
-        # load_model(model, run_root / 'best-model.pt')
-        # validation(model, criterion, tqdm.tqdm(valid_loader, desc='Validation'), 
-        #     use_cuda=use_cuda, model_name=args.model)	
+        valid_loader = make_loader(valid_fold, test_transform(args.input_size))
+        load_model(model, run_root / 'best-model.pt')
+        validation(model, criterion, tqdm.tqdm(valid_loader, desc='Validation'), 
+            use_cuda=use_cuda, model_name=args.model)	
 
     elif args.mode.startswith('predict'):
         load_model(model, run_root / 'best-model.pt')
@@ -143,10 +144,9 @@ def main():
             input_size=args.input_size
         )
         if args.mode == 'predict_valid':
-            pass
-            # predict(model, df=valid_fold, root=train_root,
-            #         out_path=run_root / 'val.h5',
-            #         **predict_kwargs)
+            predict(model, df=valid_fold, root=train_root,
+                    out_path=run_root / 'val.h5',
+                    **predict_kwargs)
         elif args.mode == 'predict_test':
             test_root = DATA_ROOT / (
                 'test_sample' if args.use_sample else 'test')
