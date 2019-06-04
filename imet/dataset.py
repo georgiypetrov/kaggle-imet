@@ -12,6 +12,7 @@ from .utils import ON_KAGGLE, N_CLASSES
 
 
 DATA_ROOT = Path('../input/imet-2019-fgvc6' if ON_KAGGLE else './data')
+TEST_FOLDS_ROOT = Path('/kaggle/working' if ON_KAGGLE else './data')
 
 
 class TrainDataset(Dataset):

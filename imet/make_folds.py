@@ -5,13 +5,13 @@ import random
 import pandas as pd
 import tqdm
 
-from .dataset import DATA_ROOT
+from .dataset import DATA_ROOT, TEST_FOLDS_ROOT
 import pathlib
+import glob
 
 
 def make_folds(n_folds: int) -> pd.DataFrame:
-    pseudo = pathlib.Path('/kaggle/input/pseudo-labels/pseudo_train.csv')
-    df = pd.read_csv(pseudo)
+    df = pd.read_csv(DATA_ROOT / 'train.csv')
     cls_counts = Counter(cls for classes in df['attribute_ids'].str.split()
                          for cls in classes)
     fold_cls_counts = defaultdict(int)
@@ -29,6 +29,13 @@ def make_folds(n_folds: int) -> pd.DataFrame:
             fold_cls_counts[fold, cls] += 1
     df['fold'] = folds
     return df
+
+
+def make_sample_submission_csv():
+    ids = [filename.split('/')[-1].split('.')[0] for filename in glob.glob(str(DATA_ROOT) + "/test/*.png")]
+    df = pd.DataFrame(ids, columns=['id'])
+    df = df.reindex(columns = ['id', 'attribute_ids'])
+    df.to_csv(TEST_FOLDS_ROOT / 'sample_submission.csv', index=None)
 
 
 def main():
