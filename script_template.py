@@ -51,7 +51,7 @@ params = {
 		# 0.549. 0.552, 0.546, 0.545, 0.549
         'tta': 6,
         'batch_size': 64,
-        'source': '/kaggle/input/efficientnet/efficient/'
+        'source': '/kaggle/input/efficientnet/efficient/efficient/'
 	}
 }
 

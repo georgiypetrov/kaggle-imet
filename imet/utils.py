@@ -185,7 +185,8 @@ models_dict = {
     "mobilenet": "pytorch-model-zoo",
     "inceptionresnetv2": "pytorch-model-zoo",    
     "se_resnext50_32x4d": "se-resnext-pytorch-pretrained",
-    "se_resnext101_32x4d": "pytorch-model-zoo"
+    "se_resnext101_32x4d": "pytorch-model-zoo",
+    "efficientnet-b3": "pytorch-model-zoo"
 }
 
 

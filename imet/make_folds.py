@@ -44,6 +44,7 @@ def main():
     args = parser.parse_args()
     df = make_folds(n_folds=args.n_folds)
     df.to_csv('folds.csv', index=None)
+    make_sample_submission_csv()
 
 
 if __name__ == '__main__':

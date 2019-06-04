@@ -16,7 +16,7 @@ from torch.optim import Adam
 import tqdm
 
 from .models import get_model
-from .dataset import TrainDataset, TTADataset, get_ids, DATA_ROOT
+from .dataset import TrainDataset, TTADataset, get_ids, DATA_ROOT, TEST_FOLDS_ROOT
 from .transforms import train_transform, test_transform
 from .utils import (
     write_event, load_model, mean_df, ThreadingDataLoader as DataLoader,
@@ -150,7 +150,7 @@ def main():
         elif args.mode == 'predict_test':
             test_root = DATA_ROOT / (
                 'test_sample' if args.use_sample else 'test')
-            ss = pd.read_csv(DATA_ROOT / 'sample_submission.csv')
+            ss = pd.read_csv(TEST_FOLDS_ROOT / 'sample_submission.csv')
             if args.use_sample:
                 ss = ss[ss['id'].isin(set(get_ids(test_root)))]
             if args.limit:
