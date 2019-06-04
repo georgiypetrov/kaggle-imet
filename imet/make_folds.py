@@ -6,10 +6,12 @@ import pandas as pd
 import tqdm
 
 from .dataset import DATA_ROOT
+import pathlib
 
 
 def make_folds(n_folds: int) -> pd.DataFrame:
-    df = pd.read_csv(DATA_ROOT / 'train.csv')
+    pseudo = pathlib.Path('/kaggle/input/pseudo-labels/pseudo_train.csv')
+    df = pd.read_csv(pseudo)
     cls_counts = Counter(cls for classes in df['attribute_ids'].str.split()
                          for cls in classes)
     fold_cls_counts = defaultdict(int)

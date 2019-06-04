@@ -26,16 +26,16 @@ def make_valid_predicts(models, force=False):
     for model in models:
         for fold in range(5):
             print(model, fold)
-            model_path = f'model_{model}_fold_{fold}'
+            model_path = f'zoo/model_{model}_fold_{fold}'
             if not force and os.path.isfile(os.path.join(model_path, 'val.h5')):
                 continue
             print(f'predicting {model_path} {model}')
-            os.system(f'python -m imet.main predict_valid {model_path} --model {model} --fold {fold}')        
+            os.system(f'python -m imet.main predict_valid {model_path} --model {model} --fold {fold} --input-size 320 --tta 16')        
 
 
 def make_submission(models):
     models = ' '.join(map(lambda model_path: os.path.join(model_path, 'test.h5'), models))
-    os.system(f'python -m imet.make_submission {models} submission.csv --threshold 0.1')
+    os.system(f'python -m imet.make_submission {models} submission_newensemble.csv --threshold 0.08')
 
 
 def main():
@@ -43,7 +43,7 @@ def main():
     arg = parser.add_argument
     arg('models', nargs='+')        
     args = parser.parse_args()
-    make_valid_predicts(args.models)
+    make_submission([f'zoo/model_{model}_fold_{fold}' for fold in range(5) for model in args.models])
 
 
 if __name__ == '__main__':
