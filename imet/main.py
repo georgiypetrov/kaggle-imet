@@ -156,7 +156,7 @@ def main():
             if args.limit:
                 ss = ss[:args.limit]
             predict(model, df=ss, root=test_root,
-                    out_path=Path('/kaggle/working') / f'test_model_{args.model}_fold_{fold}.h5',
+                    out_path=Path('/kaggle/working') / f'test_model_{args.model}_fold_{args.fold}.h5',
                     **predict_kwargs)
 
 
