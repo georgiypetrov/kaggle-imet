@@ -20,7 +20,7 @@ def run(command):
     os.system('export PYTHONPATH=${PYTHONPATH}:/kaggle/working && ' + command)
 
 
-models = ['senet154', 'se_resnext101_32x4d', 'se_resnext50_32x4d']
+models = ['efficientnet-b3', 'se_resnext101_32x4d', 'se_resnext50_32x4d']
 params = {
     'se_resnext50_32x4d': {
         'input_size': 320,
@@ -44,7 +44,15 @@ params = {
         'tta': 6,
         'batch_size': 64,
         'source': '/kaggle/input/imetzoo/zoo/'
-    }
+    },
+	'efficientnet-b3': {
+        'input_size': 384,
+        'folds': [0, 1, 4],
+		# 0.549. 0.552, 0.546, 0.545, 0.549
+        'tta': 6,
+        'batch_size': 64,
+        'source': '/kaggle/input/efficientnet/efficient/'
+	}
 }
 
 run('python setup.py develop --install-dir /kaggle/working')
@@ -57,5 +65,12 @@ for model in models:
         batch_size = params[model]['batch_size']
         run(f'python -m imet.main predict_test {run_root}model_{model}_fold_{fold} --model {model} --pretrained 0 --fold {fold} --input-size {input_size} --batch-size {batch_size} --tta {tta}')
         
-predictions = ' '.join([f'/kaggle/working/test_model_{model}_fold_{fold}.h5' for fold in params[model]['folds'] for model in models])
+predictions = []
+
+for model in models:
+    for fold in params[model]['folds']:
+        predictions.append(f'/kaggle/working/test_model_{model}_fold_{fold}.h5')
+
+predictions = ' '.join(predictions)
+
 run(f'python -m imet.make_submission {predictions} submission.csv --threshold 0.08')
