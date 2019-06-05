@@ -43,7 +43,7 @@ def make_sample_submission_csv():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--n-folds', type=int, default=5)
-    parser.add_argument(--pseudo, type=str, default='')
+    parser.add_argument('--pseudo', type=str, default='')
     args = parser.parse_args()
     df = make_folds(n_folds=args.n_folds, pseudo=args.pseudo)
     df.to_csv('folds.csv', index=None)
